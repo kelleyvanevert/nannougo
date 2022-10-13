@@ -1,9 +1,12 @@
 use crate::pos::Pos;
 
+type Board = Vec<Option<bool>>;
+
 pub struct Game {
     pub size: usize,
     pub turn: bool,
-    pub board: Vec<Option<bool>>,
+    pub board: Board,
+    history: Vec<Board>,
 }
 
 impl Game {
@@ -12,6 +15,7 @@ impl Game {
             size,
             turn: false,
             board: vec![None; size * size],
+            history: vec![],
         }
     }
 
@@ -53,6 +57,8 @@ impl Game {
             return;
         }
 
+        self.history.push(self.board.clone());
+
         self.board[(p.1 as usize) * self.size + (p.0 as usize)] = Some(self.turn);
         for np in p.neighbors(self.size) {
             if self.stone_at(np) == Some(!self.turn) {
@@ -60,6 +66,13 @@ impl Game {
             }
         }
         self.remove_if_surrounded(p);
+
+        // ko rule
+        let len = self.history.len();
+        if len >= 2 && self.history.get(len - 2) == Some(&self.board) {
+            self.board = self.history.pop().unwrap();
+            return;
+        }
 
         self.turn = !self.turn;
     }
