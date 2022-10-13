@@ -1,5 +1,9 @@
+#[macro_use]
+extern crate enum_map;
+
 use crate::game::Game;
 use crate::pos::Pos;
+use game::Stone;
 use nannou::{color, event::ElementState, prelude::*, winit::event::DeviceEvent};
 
 mod game;
@@ -14,6 +18,7 @@ fn main() {
 }
 
 struct Measurements {
+    padding: f32,
     stone_size: f32,
 }
 
@@ -31,12 +36,16 @@ impl ViewModel {
     }
 
     fn calculate_measurements(&self) -> Measurements {
-        let board_rect = self.rect.pad(24.0);
+        let padding = 24.0;
+        let board_rect = self.rect.pad(padding);
         let (w, h) = board_rect.w_h();
         let board_size = if w < h { w } else { h };
         let stone_size = board_size / (self.game.size as f32);
 
-        Measurements { stone_size }
+        Measurements {
+            padding,
+            stone_size,
+        }
     }
 
     fn stone_project(&self, p: Pos) -> Vec2 {
@@ -106,7 +115,7 @@ fn view(app: &App, model: &ViewModel, frame: Frame) {
                 .xy(model.stone_project(pos))
                 .w_h(m.stone_size - 4.0, m.stone_size - 4.0);
 
-            match model.game.board[y * model.game.size + x] {
+            match model.game.stone_at(pos) {
                 None => {
                     stone
                         .color(color::rgba(0.0, 0.0, 0.0, 0.0))
@@ -115,7 +124,10 @@ fn view(app: &App, model: &ViewModel, frame: Frame) {
                 }
                 Some(color) => {
                     stone
-                        .color(if color { BLACK } else { WHITE })
+                        .color(match color {
+                            Stone::Black => BLACK,
+                            Stone::White => WHITE,
+                        })
                         .stroke(BLACK)
                         .stroke_weight(2.5);
                 }
@@ -128,11 +140,30 @@ fn view(app: &App, model: &ViewModel, frame: Frame) {
             draw.ellipse()
                 .xy(model.stone_project(p))
                 .w_h(m.stone_size + 8.0, m.stone_size + 8.0)
-                .color(if model.game.turn { BLACK } else { WHITE })
+                .color(match model.game.turn {
+                    Stone::Black => BLACK,
+                    Stone::White => WHITE,
+                })
                 .stroke(BLACK)
                 .stroke_weight(3.0);
         }
     }
+
+    let s = model.game.state.captures[Stone::Black];
+    draw.text(format!("{}", s).as_str())
+        .x(model.rect.left() + m.padding)
+        .y(model.rect.top() - m.padding)
+        .color(BLACK)
+        .align_text_bottom()
+        .font_size(m.stone_size as u32);
+
+    let s = model.game.state.captures[Stone::White];
+    draw.text(format!("{}", s).as_str())
+        .x(model.rect.left() + m.padding)
+        .y(model.rect.top() - m.padding - m.stone_size)
+        .color(BLACK)
+        .align_text_bottom()
+        .font_size(m.stone_size as u32);
 
     draw.to_frame(app, &frame).unwrap();
 }

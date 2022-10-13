@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 nannou = "0.18.0"
+enum-map = "2.4.1"
