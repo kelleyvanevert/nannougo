@@ -6,14 +6,20 @@ mod game;
 mod pos;
 
 fn main() {
-    nannou::app(model).event(event).simple_window(view).run();
+    nannou::app(model)
+        .event(event)
+        .simple_window(view)
+        // .fullscreen()
+        .run();
 }
 
 struct Model {
     game: Game,
 }
 
-fn model(_app: &App) -> Model {
+fn model(app: &App) -> Model {
+    app.set_loop_mode(LoopMode::Wait);
+
     Model {
         game: Game::new(13),
     }
