@@ -17,8 +17,23 @@ fn main() {
         .run();
 }
 
+trait MakeSquare {
+    fn make_inset_square(&self) -> Self;
+}
+
+impl MakeSquare for Rect {
+    fn make_inset_square(&self) -> Self {
+        let (x, y, w, h) = self.x_y_w_h();
+        if w > h {
+            Rect::from_x_y_w_h(x, y, h, h)
+        } else {
+            Rect::from_x_y_w_h(x, y, w, w)
+        }
+    }
+}
+
 struct Measurements {
-    padding: f32,
+    board_rect: Rect,
     stone_size: f32,
 }
 
@@ -36,34 +51,38 @@ impl ViewModel {
     }
 
     fn calculate_measurements(&self) -> Measurements {
-        let padding = 24.0;
-        let board_rect = self.rect.pad(padding);
-        let (w, h) = board_rect.w_h();
-        let board_size = if w < h { w } else { h };
-        let stone_size = board_size / (self.game.size as f32);
+        let board_rect = self
+            .rect
+            .pad_top(32.0 + 24.0 + 16.0)
+            .pad_left(32.0)
+            .pad_right(32.0)
+            .pad_bottom(32.0)
+            .make_inset_square();
+
+        let stone_size = board_rect.w() / (self.game.size as f32);
 
         Measurements {
-            padding,
+            board_rect,
             stone_size,
         }
     }
 
     fn stone_project(&self, p: Pos) -> Vec2 {
         let m = self.calculate_measurements();
+        let bl = m.board_rect.bottom_left();
 
-        let d = (self.game.size as f32 - 1.0) / 2.0;
         vec2(
-            (p.0 as f32 - d) * m.stone_size,
-            (p.1 as f32 - d) * m.stone_size,
+            bl.x + (p.0 as f32 + 0.5) * m.stone_size,
+            bl.y + (p.1 as f32 + 0.5) * m.stone_size,
         )
     }
 
     fn stone_unproject(&self, v: Vec2) -> Option<Pos> {
         let m = self.calculate_measurements();
+        let bl = m.board_rect.bottom_left();
 
-        let d = (self.game.size as f32 - 1.0) / 2.0;
-        let x: i32 = (v.x / m.stone_size + d).round() as i32;
-        let y: i32 = (v.y / m.stone_size + d).round() as i32;
+        let x: i32 = ((v.x - bl.x) / m.stone_size - 0.5).round() as i32;
+        let y: i32 = ((v.y - bl.y) / m.stone_size - 0.5).round() as i32;
         if x >= 0 && x < (self.game.size as i32) && y >= 0 && y < (self.game.size as i32) {
             Some(Pos(x, y))
         } else {
@@ -149,21 +168,35 @@ fn view(app: &App, model: &ViewModel, frame: Frame) {
         }
     }
 
-    let s = model.game.state.captures[Stone::Black];
-    draw.text(format!("{}", s).as_str())
-        .x(model.rect.left() + m.padding)
-        .y(model.rect.top() - m.padding)
-        .color(BLACK)
-        .align_text_bottom()
-        .font_size(m.stone_size as u32);
+    let white_captures = model.game.state.captures[Stone::White];
+    let black_captures = model.game.state.captures[Stone::Black];
+    let mut pieces: Vec<String> = vec![];
 
-    let s = model.game.state.captures[Stone::White];
-    draw.text(format!("{}", s).as_str())
-        .x(model.rect.left() + m.padding)
-        .y(model.rect.top() - m.padding - m.stone_size)
+    if white_captures + black_captures == 0 {
+        pieces.push("No captures".to_string());
+    } else if white_captures > 0 && black_captures > 0 {
+        pieces.push(format!(
+            "Captures: {} white, {} black",
+            white_captures, black_captures
+        ));
+    } else if white_captures > 0 {
+        pieces.push(format!("Captures: {} white", white_captures));
+    } else if black_captures > 0 {
+        pieces.push(format!("Captures: {} black", black_captures));
+    }
+
+    pieces.push(match model.game.turn {
+        Stone::White => "White to play".to_string(),
+        Stone::Black => "Black to play".to_string(),
+    });
+
+    draw.text(&pieces.join(" — "))
+        .no_line_wrap()
+        .x(0.0)
+        .y(model.rect.top() - 32.0)
         .color(BLACK)
-        .align_text_bottom()
-        .font_size(m.stone_size as u32);
+        .align_text_middle_y()
+        .font_size(24);
 
     draw.to_frame(app, &frame).unwrap();
 }
